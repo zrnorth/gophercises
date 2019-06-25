@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -33,9 +34,21 @@ func parseLines(lines [][]string) []problem {
 	return ret
 }
 
+// If the shuffle flag is set, this is called to shuffle the problems before displaying them
+func shuffleProblems(probs []problem) {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for len(probs) > 0 {
+		n := len(probs)
+		randIndex := r.Intn(n)
+		probs[n-1], probs[randIndex] = probs[randIndex], probs[n-1]
+		probs = probs[:n-1]
+	}
+}
+
 func main() {
 	csvFilename := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
 	timeLimit := flag.Int("limit", 30, "the time limit for the quiz in seconds")
+	shuffle := flag.Bool("shuffle", false, "if true, shuffle the problems")
 	flag.Parse()
 
 	file, err := os.Open(*csvFilename)
@@ -52,6 +65,9 @@ func main() {
 		exit("Failed to parse the provided csv file.")
 	}
 	problems := parseLines(lines)
+	if *shuffle {
+		shuffleProblems(problems)
+	}
 
 	// Start the timer for the quiz
 	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
