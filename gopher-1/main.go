@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 )
 
 // Exit and display an error message
@@ -25,7 +27,7 @@ func parseLines(lines [][]string) []problem {
 	for i, line := range lines {
 		ret[i] = problem{
 			q: line[0],
-			a: line[1],
+			a: strings.TrimSpace(line[1]),
 		}
 	}
 	return ret
@@ -33,6 +35,7 @@ func parseLines(lines [][]string) []problem {
 
 func main() {
 	csvFilename := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
+	timeLimit := flag.Int("limit", 30, "the time limit for the quiz in seconds")
 	flag.Parse()
 
 	file, err := os.Open(*csvFilename)
@@ -50,14 +53,32 @@ func main() {
 	}
 	problems := parseLines(lines)
 
+	// Start the timer for the quiz
+	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
+
 	// Print the problems and get user response
 	correct := 0
+
 	for i, p := range problems {
 		fmt.Printf("Problem #%d: %s = ", i+1, p.q) // i+1 so starts at problem 1
-		var answer string
-		fmt.Scanf("%s\n", &answer)
-		if answer == p.a {
-			correct++
+		// Setup the channel to listen for answers from the user
+		answerCh := make(chan string)
+		go func() {
+			var answer string
+			fmt.Scanf("%s\n", &answer)
+			answerCh <- answer
+		}()
+
+		select {
+		// If the timer ends the game, stop now
+		case <-timer.C:
+			fmt.Printf("\nYou scored %d out of %d.\n", correct, len(problems))
+			return
+		// if you get an inputted answer, check for correctness
+		case answer := <-answerCh:
+			if answer == p.a {
+				correct++
+			}
 		}
 	}
 	fmt.Printf("You scored %d out of %d.\n", correct, len(problems))
