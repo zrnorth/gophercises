@@ -5,15 +5,17 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"text/template"
 )
 
 func init() {
 	tmpl = template.Must(template.New("").Parse(defaultHandlerTemplate))
+	cmdLineTmpl = template.Must(template.New("").Parse(defaultTextTemplate))
 }
 
-var tmpl *template.Template
+var tmpl, cmdLineTmpl *template.Template
 
 var defaultHandlerTemplate = `
 <!DOCTYPE html>
@@ -52,6 +54,17 @@ var defaultHandlerTemplate = `
 </html>
 `
 
+var defaultTextTemplate = `
+	{{.Title}}
+	{{range .Paragraphs}}
+		{{.}}
+	{{end}}
+	
+	{{range .Options}}
+		{{.Idx}}:  {{.Text}}
+  {{end}}
+`
+
 type HandlerOption func(h *handler)
 
 func WithTemplate(t *template.Template) HandlerOption {
@@ -66,7 +79,11 @@ func WithPathFunc(fn func(r *http.Request) string) HandlerOption {
 	}
 }
 
-func NewHandler(s Story, opts ...HandlerOption) http.Handler {
+func WithCommandLineMode() HandlerOption {
+	return WithTemplate(cmdLineTmpl)
+}
+
+func NewHandler(s Story, opts ...HandlerOption) handler {
 	h := handler{s, tmpl, defaultPathFn}
 	for _, opt := range opts {
 		opt(&h)
@@ -91,7 +108,7 @@ func defaultPathFn(r *http.Request) string {
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := h.pathFn(r)
 	if arc, ok := h.s[path]; ok {
-		err := tmpl.Execute(w, arc)
+		err := h.t.Execute(w, arc)
 		if err != nil {
 			log.Printf("%v", err)
 			http.Error(w, "Something went wrong...", http.StatusInternalServerError)
@@ -99,6 +116,33 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Error(w, "Chapter not found.", http.StatusNotFound)
+}
+
+func (h handler) ServeTextToConsole(path string) {
+	if arc, ok := h.s[path]; ok {
+		err := h.t.Execute(os.Stdout, arc)
+		if err != nil {
+			log.Printf("%v", err)
+		}
+		return
+	}
+}
+
+// Given a path and a response, returns the next path in the sequence
+func (h handler) GetNext(path string, resp int) string {
+	if arc, ok := h.s[path]; ok {
+		if len(arc.Options) == 0 {
+			// We reached the end of a path. Finish the game
+			// Kinda dumb but we treat empty string like "the end"
+			return ""
+		}
+		for _, opt := range arc.Options {
+			if opt.Idx == resp {
+				return opt.Arc
+			}
+		}
+	}
+	return path
 }
 
 // Helper to read in stories
@@ -123,6 +167,7 @@ type Arc struct {
 
 // Option for each Arc
 type Option struct {
+	Idx  int    `json:"idx"`
 	Text string `json:"text"`
 	Arc  string `json:"arc"`
 }
