@@ -20,9 +20,23 @@ var defaultHandlerTemplate = `
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Choose Your Own Adventure</title>
+		<title>Choose Your Own Adventure</title>
+		<style>
+			body {
+				margin: 20px;
+				background-color: #d8e7ff;
+				font-family: Georgia;
+				color: #222;
+			}
+			h1 {
+				font-family: Verdana;
+			}
+			ul {
+				list-style: none;
+			}
+		</style>
   </head>
-  <body>
+	<body>
     <h1>{{.Title}}</h1>
     {{range .Paragraphs}}
       <p>{{.}}</p>
@@ -38,12 +52,25 @@ var defaultHandlerTemplate = `
 </html>
 `
 
-func NewHandler(s Story) http.Handler {
-	return handler{s}
+type HandlerOption func(h *handler)
+
+func WithTemplate(t *template.Template) HandlerOption {
+	return func(h *handler) {
+		h.t = t
+	}
+}
+
+func NewHandler(s Story, opts ...HandlerOption) http.Handler {
+	h := handler{s, tmpl}
+	for _, opt := range opts {
+		opt(&h)
+	}
+	return h
 }
 
 type handler struct {
 	s Story
+	t *template.Template
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
