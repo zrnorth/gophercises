@@ -1,19 +1,19 @@
 package main
 
 import (
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	link "github.com/zrnorth/gopher/gopher-4"
 )
 
 func get(urlStr string) []string {
-	fmt.Println("GETting from " + urlStr)
-
 	resp, err := http.Get(urlStr)
 	if err != nil {
 		panic(err)
@@ -103,6 +103,17 @@ func bfs(urlStr string, maxDepth int) []string {
 	return ret
 }
 
+const xmlns = "http://www.sitemaps.org/schemas/sitemap/0.9"
+
+type loc struct {
+	Value string `xml:"loc"`
+}
+
+type urlset struct {
+	URLs  []loc  `xml:"url"`
+	Xmlns string `xml:"xmlns,attr"`
+}
+
 func main() {
 	urlFlag := flag.String("url", "http://www.github.com", "the url that you want to build a sitemap for")
 	maxDepth := flag.Int("depth", 3, "the maximum number of links deep to traverse")
@@ -110,10 +121,16 @@ func main() {
 
 	pages := bfs(*urlFlag, *maxDepth)
 
-	for _, page := range pages {
-		fmt.Println(page)
+	toXML := urlset{
+		Xmlns: xmlns,
 	}
-	// 3. filter out any links that have a different domain
-	// 4. BFS to next layer of links
-	// 5. print the formatted xml
+	for _, page := range pages {
+		toXML.URLs = append(toXML.URLs, loc{page})
+	}
+	fmt.Print(xml.Header)
+	enc := xml.NewEncoder(os.Stdout)
+	enc.Indent("", "  ")
+	if err := enc.Encode(toXML); err != nil {
+		panic(err)
+	}
 }
