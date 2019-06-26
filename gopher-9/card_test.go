@@ -35,3 +35,28 @@ func TestDefaultSort(t *testing.T) {
 		t.Error("Expected default sorted deck to begin with Ace of Spaces. Received:", cards[0])
 	}
 }
+
+func TestJokers(t *testing.T) {
+	cards := New(Jokers(3))
+	count := 0
+	for _, c := range cards {
+		if c.Suit == Joker {
+			count++
+		}
+	}
+	if count != 3 {
+		t.Error("Expected 3 jokers, received:", count)
+	}
+}
+
+func TestFilter(t *testing.T) {
+	filter := func(card Card) bool {
+		return card.Rank == Two || card.Rank == Three
+	}
+	cards := New(Filter(filter))
+	for _, c := range cards {
+		if c.Rank == Two || c.Rank == Three {
+			t.Error("Expected all Twos and Threes to be filtered out!")
+		}
+	}
+}
