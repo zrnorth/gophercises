@@ -1,8 +1,8 @@
 package link
 
 import (
-	"fmt"
 	"io"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -13,15 +13,46 @@ type Link struct {
 	Text string
 }
 
-func dfs(n *html.Node, padding string) {
-	msg := n.Data
-	if n.Type == html.ElementNode {
-		msg = "<" + msg + ">"
+// 1. find <a> nodes in document
+// 2. for each link, build a Link
+// 3. return the links
+
+// Given a head node, returns a slice of all <a> nodes
+func linkNodes(n *html.Node) []*html.Node {
+	if n.Type == html.ElementNode && n.Data == "a" {
+		return []*html.Node{n}
 	}
-	fmt.Println(padding, msg)
+	var ret []*html.Node
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		dfs(c, padding+"  ")
+		ret = append(ret, linkNodes(c)...) // adding the ... here because we want to expand the returned slice
 	}
+	return ret
+}
+
+func buildLink(n *html.Node) Link {
+	var ret Link
+	for _, attr := range n.Attr {
+		if attr.Key == "href" {
+			ret.Href = attr.Val
+			break
+		}
+	}
+	ret.Text = text(n)
+	return ret
+}
+
+func text(n *html.Node) string {
+	if n.Type == html.TextNode {
+		return n.Data
+	}
+	if n.Type != html.ElementNode {
+		return ""
+	}
+	var ret string
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		ret += text(c) + " "
+	}
+	return strings.Join(strings.Fields(ret), " ")
 }
 
 // Parse will take in an html doc and return a slice of links parsed from it
@@ -31,6 +62,10 @@ func Parse(r io.Reader) ([]Link, error) {
 	if err != nil {
 		return nil, err
 	}
-	dfs(doc, "")
-	return nil, nil
+	nodes := linkNodes(doc)
+	var links []Link
+	for _, node := range nodes {
+		links = append(links, buildLink(node))
+	}
+	return links, nil
 }
