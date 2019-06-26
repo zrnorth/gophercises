@@ -2,6 +2,7 @@ package deck
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 )
 
@@ -36,6 +37,22 @@ func TestDefaultSort(t *testing.T) {
 	}
 }
 
+func TestShuffle(t *testing.T) {
+	shuffleRand = rand.New(rand.NewSource(0)) // Overwrote shuffleRand here to fix the seed
+	// With key 0, order of cards is [40 35 ...]
+	orig := New()
+	first := orig[40]
+	second := orig[35]
+
+	cards := New(Shuffle)
+	if cards[0] != first {
+		t.Errorf("Expected the first shuffled card to be %s, received %s.", first, cards[0])
+	}
+	if cards[1] != second {
+		t.Errorf("Expected the first shuffled card to be %s, received %s.", second, cards[1])
+	}
+}
+
 func TestJokers(t *testing.T) {
 	cards := New(Jokers(3))
 	count := 0
@@ -58,5 +75,12 @@ func TestFilter(t *testing.T) {
 		if c.Rank == Two || c.Rank == Three {
 			t.Error("Expected all Twos and Threes to be filtered out!")
 		}
+	}
+}
+
+func TestDeck(t *testing.T) {
+	cards := New(Deck(3))
+	if len(cards) != 13*4*3 {
+		t.Errorf("Expected deck length of %d but received deck of %d cards", 13*4*3, len(cards))
 	}
 }
