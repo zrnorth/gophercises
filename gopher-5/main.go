@@ -71,11 +71,44 @@ func withPrefix(pfx string) func(string) bool {
 	}
 }
 
+type empty struct{}
+
+func bfs(urlStr string, maxDepth int) []string {
+	seen := make(map[string]empty)
+	// People do this (map string -> empty struct) in golang instead of mapping to an int or bool
+	// Saves a small bit of memory or something.
+
+	var q map[string]empty     // normal queue for our bfs
+	nextQ := map[string]empty{ // keep track of all next-layer links here
+		urlStr: empty{},
+	}
+
+	for i := 0; i <= maxDepth; i++ {
+		q, nextQ = nextQ, make(map[string]empty) // when we finish a layer, move nextQ -> q
+		for url := range q {
+			if _, exists := seen[url]; exists { // if we've seen this key before, skip it
+				continue
+			}
+			seen[url] = empty{}             // mark this url as seen
+			for _, link := range get(url) { // put all links from this url in the nextQ
+				nextQ[link] = empty{}
+			}
+		}
+	}
+
+	ret := make([]string, 0, len(seen))
+	for url := range seen {
+		ret = append(ret, url)
+	}
+	return ret
+}
+
 func main() {
 	urlFlag := flag.String("url", "http://www.github.com", "the url that you want to build a sitemap for")
+	maxDepth := flag.Int("depth", 3, "the maximum number of links deep to traverse")
 	flag.Parse()
 
-	pages := get(*urlFlag)
+	pages := bfs(*urlFlag, *maxDepth)
 
 	for _, page := range pages {
 		fmt.Println(page)
