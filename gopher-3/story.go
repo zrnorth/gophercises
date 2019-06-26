@@ -3,7 +3,9 @@ package cyoa
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
+	"strings"
 	"text/template"
 )
 
@@ -45,11 +47,21 @@ type handler struct {
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Start with the intro story
-	err := tmpl.Execute(w, h.s["intro"])
-	if err != nil {
-		panic(err)
+	path := strings.TrimSpace(r.URL.Path)
+	if path == "" || path == "/" {
+		path = "/intro"
 	}
+	path = path[1:] // remove the '/'
+
+	if arc, ok := h.s[path]; ok {
+		err := tmpl.Execute(w, arc)
+		if err != nil {
+			log.Printf("%v", err)
+			http.Error(w, "Something went wrong...", http.StatusInternalServerError)
+		}
+		return
+	}
+	http.Error(w, "Chapter not found.", http.StatusNotFound)
 }
 
 // Helper to read in stories
