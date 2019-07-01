@@ -8,28 +8,55 @@ import (
 
 type state int8
 
+type Options struct {
+	Decks           int
+	Hands           int
+	BlackjackPayout float64
+}
+
 const (
-	statePlayerTurn state = iota
+	stateBetting state = iota
+	statePlayerTurn
 	stateDealerTurn
 	stateHandOver
 )
 
-func New() Game {
-	return Game{
+func New(opts Options) Game {
+	g := Game{
 		state:    statePlayerTurn,
 		dealerAI: dealerAI{},
 		balance:  0,
 	}
+
+	// Set default options
+	if opts.Decks == 0 {
+		opts.Decks = 3
+	}
+	if opts.Hands == 0 {
+		opts.Hands = 100
+	}
+	if opts.BlackjackPayout == 0 {
+		opts.BlackjackPayout = 1.5
+	}
+
+	g.numDecks = opts.Decks
+	g.numHands = opts.Hands
+	g.blackjackPayout = opts.BlackjackPayout
+
+	return g
 }
 
 type Game struct {
 	// unexported fields
-	shoe     []deck.Card
-	state    state
-	player   []deck.Card
-	dealer   []deck.Card
-	dealerAI AI
-	balance  int
+	shoe            []deck.Card
+	numDecks        int // number of decks in the shoe
+	numHands        int
+	state           state
+	player          []deck.Card
+	dealer          []deck.Card
+	dealerAI        AI
+	balance         int
+	blackjackPayout float64
 }
 
 func (g *Game) currentHand() *[]deck.Card {
@@ -57,8 +84,12 @@ func deal(g *Game) {
 }
 
 func (g *Game) Play(ai AI) int {
-	g.shoe = deck.New(deck.Deck(3), deck.Shuffle)
-	for i := 0; i < 10; i++ {
+	g.shoe = nil
+	min := (52 * g.numDecks) / 2 // when shoe size hits min, refshuffle
+	for i := 0; i < g.numHands; i++ {
+		if len(g.shoe) < min {
+			g.shoe = deck.New(deck.Deck(g.numDecks), deck.Shuffle)
+		}
 		deal(g)
 
 		// Player's action

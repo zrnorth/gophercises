@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	game := blackjack.New()
+	game := blackjack.New(blackjack.Options{})
 	winnings := game.Play(blackjack.HumanAI())
 	fmt.Println(winnings)
 }
