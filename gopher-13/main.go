@@ -58,14 +58,30 @@ func getTopStories(numStories int) ([]item, error) {
 		return nil, errors.New("Failed to load top stories")
 	}
 
-	// Create a bunch of parallel goroutines, each one getting a single item by ID
+	// Try to get the number of stories we need. If we come up short bc one or more
+	// are text posts or AskHN, try again until we have exactly numStories.
+	var stories []item
+	at := 0
+	for len(stories) < numStories {
+		need := (numStories - len(stories)) * 5 / 4 // add a little bit extra to reduce loops
+		stories = append(stories, getStories(ids[at:at+need])...)
+		at += need
+	}
+	return stories[:numStories], nil
+}
+
+// Creates a bunch of parallel goroutines, each one getting a single item by ID
+// Blocks until they all finish and then returns the consolidated stories
+func getStories(ids []int) []item {
+	var client hn.Client
 	type result struct {
 		idx  int
 		item item
 		err  error
 	}
 	resultCh := make(chan result)
-	for i := 0; i < numStories; i++ {
+
+	for i := 0; i < len(ids); i++ {
 		go func(idx, id int) {
 			hnItem, err := client.GetItem(id)
 			if err != nil {
@@ -77,7 +93,7 @@ func getTopStories(numStories int) ([]item, error) {
 
 	// Consolidate the results here and sort them
 	var results []result
-	for i := 0; i < numStories; i++ {
+	for i := 0; i < len(ids); i++ {
 		results = append(results, <-resultCh)
 	}
 
@@ -95,8 +111,9 @@ func getTopStories(numStories int) ([]item, error) {
 			stories = append(stories, res.item)
 		}
 	}
-	return stories, nil
+	return stories
 }
+
 func isStoryLink(item item) bool {
 	return item.Type == "story" && item.URL != ""
 }
