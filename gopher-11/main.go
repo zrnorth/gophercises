@@ -7,13 +7,29 @@ import (
 	deck "github.com/zrnorth/gopher/gopher-9"
 )
 
-type basicAI struct{}
-
-func (ai basicAI) Bet(newlyShuffled bool) int {
-	return 100
+type basicAI struct {
+	count int
+	seen  int
+	decks int
 }
 
-func (ai basicAI) Play(hand []deck.Card, dealer deck.Card) blackjack.Move {
+func (ai *basicAI) Bet(newlyShuffled bool) int {
+	if newlyShuffled {
+		ai.count = 0
+		ai.seen = 0
+	}
+	trueScore := ai.count / (((ai.decks * 52) - ai.seen) / 52)
+	switch {
+	case trueScore >= 14:
+		return 1000
+	case trueScore >= 8:
+		return 500
+	default:
+		return 100
+	}
+}
+
+func (ai *basicAI) Play(hand []deck.Card, dealer deck.Card) blackjack.Move {
 	score := blackjack.Score(hand...)
 	if len(hand) == 2 { // Decide if we want to double or not
 		if hand[0] == hand[1] { // Decide if we want to split or not
@@ -37,8 +53,28 @@ func (ai basicAI) Play(hand []deck.Card, dealer deck.Card) blackjack.Move {
 	return blackjack.MoveStand
 }
 
-func (ai basicAI) Results(hands [][]deck.Card, dealer []deck.Card) {
-	// noop for now
+func (ai *basicAI) Results(hands [][]deck.Card, dealer []deck.Card) {
+	for _, card := range dealer {
+		ai.countCard(card)
+	}
+	for _, hand := range hands {
+		for _, card := range hand {
+			ai.countCard(card)
+		}
+	}
+}
+
+func (ai *basicAI) countCard(card deck.Card) {
+	score := blackjack.Score(card)
+	// Basic count
+	switch {
+	case score >= 10:
+		ai.count--
+	case score <= 6:
+		ai.count++
+	}
+
+	ai.seen++
 }
 
 func main() {
@@ -48,6 +84,8 @@ func main() {
 		BlackjackPayout: 1.5,
 	}
 	game := blackjack.New(opts)
-	winnings := game.Play(&basicAI{})
+	winnings := game.Play(&basicAI{
+		decks: opts.Decks,
+	})
 	fmt.Println(winnings)
 }
