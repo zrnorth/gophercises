@@ -1,74 +1,65 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
 
-type file struct {
-	name string
-	path string
-}
-
 func main() {
+	var dryRun bool
+	flag.BoolVar(&dryRun, "dry", true, "whether or not this should be a dry run (i.e. won't actually rename)")
+	flag.Parse()
+
 	dir := "sample"
-	var toRename []file
+	toRename := make(map[string][]string) // storing a map of filepaths to lists of files
 
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
-		if _, err := match(info.Name()); err == nil {
-			toRename = append(toRename, file{
-				name: info.Name(),
-				path: path,
-			})
+		curDir := filepath.Dir(path)
+		if m, err := match(info.Name()); err == nil {
+			key := filepath.Join(curDir, fmt.Sprintf("%s.%s", m.base, m.ext))
+			toRename[key] = append(toRename[key], info.Name())
 		}
 		return nil
 	})
-	for _, f := range toRename {
-		fmt.Printf("%q\n", f)
-	}
-	for _, orig := range toRename {
-		var n file
-		var err error
-		n.name, err = match(orig.name)
-		if err != nil {
-			fmt.Println("Error matching: ", orig.path, err.Error())
-		}
-		n.path = filepath.Join(dir, n.name)
-		fmt.Printf("mv %s => %s\n", orig.path, n.path)
 
-		err = os.Rename(orig.path, n.path)
-		if err != nil {
-			fmt.Println("Error renaming: ", orig.path, err.Error())
+	// Get the total number of files so the "m of n" string will have the correct n
+	for key, files := range toRename {
+		dir := filepath.Dir(key)
+		n := len(files)
+		sort.Strings(files)
+		for i, filename := range files {
+			res, _ := match(filename)
+			newFilename := fmt.Sprintf("%s - %d of %d.%s", res.base, (i + 1), n, res.ext)
+			oldPath := filepath.Join(dir, filename)
+			newPath := filepath.Join(dir, newFilename)
+			fmt.Printf("mv %s => %s\n", oldPath, newPath)
+
+			// Actually do the rename
+			if !dryRun {
+				err := os.Rename(oldPath, newPath)
+				if err != nil {
+					fmt.Println("Error renaming: ", oldPath, err.Error())
+				}
+			}
 		}
 	}
-	// files, err := ioutil.ReadDir(dir)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// count := 0
-	// var toRename []string
-
-	// for _, file := range files {
-	// 	if file.IsDir() {
-	// 		fmt.Println("Dir: ", file.Name())
-	// 	} else {
-	// 		_, err := match(file.Name(), 0)
-	// 		if err == nil {
-	// 			count++
-	// 			toRename = append(toRename, file.Name())
-	// 		}
-	// 	}
-	// }
 }
 
-// match returns the new filename or an error if filename didn't match our pattern
-func match(filename string /*, total int*/) (string, error) {
+type matchResult struct {
+	base  string
+	index int
+	ext   string
+}
+
+func match(filename string) (*matchResult, error) {
 	// split into "birthday", "001", "txt"
 	pieces := strings.Split(filename, ".")
 	ext := pieces[len(pieces)-1]
@@ -78,8 +69,7 @@ func match(filename string /*, total int*/) (string, error) {
 	name := strings.Join(pieces[0:len(pieces)-1], ".")
 	number, err := strconv.Atoi(pieces[len(pieces)-1])
 	if err != nil {
-		return "", fmt.Errorf("%s didn't match our pattern", filename)
+		return nil, fmt.Errorf("%s didn't match our pattern", filename)
 	}
-	//return fmt.Sprintf("%s - %d of %d.%s", strings.Title(name), number, total, ext), nil
-	return fmt.Sprintf("%s - %d.%s", strings.Title(name), number, ext), nil
+	return &matchResult{strings.Title(name), number, ext}, nil
 }
