@@ -55,7 +55,7 @@ func (ai humanAI) Play(hand []deck.Card, dealer deck.Card) Move {
 	for {
 		fmt.Println("Player:", hand)
 		fmt.Println("Dealer:", dealer)
-		fmt.Println("What will you do? (h)it, (s)tand")
+		fmt.Println("What will you do? (h)it, (s)tand, (d)ouble down")
 		var input string
 		fmt.Scanf("%s\n", &input)
 		switch input {
@@ -63,6 +63,8 @@ func (ai humanAI) Play(hand []deck.Card, dealer deck.Card) Move {
 			return MoveHit
 		case "s":
 			return MoveStand
+		case "d":
+			return MoveDoubleDown
 		default:
 			fmt.Println("Invalid option:", input)
 		}

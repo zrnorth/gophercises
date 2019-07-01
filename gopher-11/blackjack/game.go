@@ -1,6 +1,7 @@
 package blackjack
 
 import (
+	"errors"
 	"fmt"
 
 	deck "github.com/zrnorth/gopher/gopher-9"
@@ -114,7 +115,16 @@ func (g *Game) Play(ai AI) int {
 			hand := make([]deck.Card, len(g.player))
 			copy(hand, g.player)
 			move := ai.Play(hand, g.dealer[0])
-			move(g)
+			err := move(g)
+
+			switch err {
+			case errBust:
+				MoveStand(g)
+			case nil:
+				// noop
+			default:
+				panic(err)
+			}
 		}
 
 		// Dealer's action
@@ -130,21 +140,35 @@ func (g *Game) Play(ai AI) int {
 	return g.balance
 }
 
-type Move func(*Game)
+var (
+	errBust = errors.New("hand score exceeded 21")
+)
 
-func MoveHit(g *Game) {
+type Move func(*Game) error
+
+func MoveHit(g *Game) error {
 	hand := g.currentHand()
 	var card deck.Card
 	card, g.shoe = draw(g.shoe)
 	*hand = append(*hand, card)
 	if Score(*hand...) > 21 {
-		MoveStand(g)
+		return errBust
 	}
-	return
+	return nil
 }
 
-func MoveStand(g *Game) {
+func MoveStand(g *Game) error {
 	g.state++ // todo this will change
+	return nil
+}
+
+func MoveDoubleDown(g *Game) error {
+	if len(g.player) != 2 {
+		return errors.New("can only double down on a hand with exactly 2 cards")
+	}
+	g.playerBet *= 2
+	MoveHit(g)
+	return MoveStand(g)
 }
 
 func draw(cards []deck.Card) (deck.Card, []deck.Card) {
