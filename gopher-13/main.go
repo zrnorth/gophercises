@@ -73,7 +73,6 @@ func getTopStories(numStories int) ([]item, error) {
 // Creates a bunch of parallel goroutines, each one getting a single item by ID
 // Blocks until they all finish and then returns the consolidated stories
 func getStories(ids []int) []item {
-	var client hn.Client
 	type result struct {
 		idx  int
 		item item
@@ -83,6 +82,7 @@ func getStories(ids []int) []item {
 
 	for i := 0; i < len(ids); i++ {
 		go func(idx, id int) {
+			var client hn.Client
 			hnItem, err := client.GetItem(id)
 			if err != nil {
 				resultCh <- result{idx: idx, err: err}
