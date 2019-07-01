@@ -2,7 +2,6 @@ package blackjack
 
 import (
 	"errors"
-	"fmt"
 
 	deck "github.com/zrnorth/gopher/gopher-9"
 )
@@ -289,7 +288,6 @@ func endRound(g *Game, ai AI) {
 		g.balance += winnings
 	}
 
-	fmt.Println()
 	ai.Results(allHands, g.dealer)
 	g.player = nil
 	g.dealer = nil
