@@ -44,16 +44,7 @@ func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 	go func() {
 		ticker := time.NewTicker(3 * time.Second)
 		for {
-			temp := storyCache{
-				numStories: numStories,
-				duration:   cacheDuration,
-			}
-			temp.stories()
-			sc.mutex.Lock()
-			sc.cache = temp.cache
-			sc.expiration = temp.expiration
-			sc.mutex.Unlock()
-
+			sc.updateCache()
 			<-ticker.C
 		}
 	}()
@@ -83,6 +74,18 @@ type storyCache struct {
 	expiration time.Time
 	duration   time.Duration
 	mutex      sync.Mutex
+}
+
+func (sc *storyCache) updateCache() {
+	temp := storyCache{
+		numStories: sc.numStories,
+		duration:   sc.duration,
+	}
+	temp.stories()
+	sc.mutex.Lock()
+	sc.cache = temp.cache
+	sc.expiration = temp.expiration
+	sc.mutex.Unlock()
 }
 
 func (sc *storyCache) stories() ([]item, error) {
